@@ -1,0 +1,242 @@
+import java.io.*;
+import java.util.PriorityQueue;
+import java.util.TreeMap;
+
+/**
+ * User: Kedar Biradar
+ * Date: 28/1/14
+ * Time: 4:46 PM
+ * To change this template use File | Settings | File Templates.
+ */
+
+public class MergeSortedFiles
+{
+
+
+    PriorityQueue<PQueueNode> queue = new PriorityQueue<PQueueNode>();
+    TreeMap<Integer, Boolean> fileAvailable = new TreeMap<Integer, Boolean>();
+    BufferedReader [] readers;
+    char [][] lines,terms;
+    boolean [] readLine;
+    static int fileNumber;
+
+    public void MergeFiles(int NoOfFiles)  //throws IOException
+    {
+
+        fileNumber=NoOfFiles;
+        String fileName="Temp_File";
+
+        BufferedWriter writer = null;
+
+        try
+        {
+            File file = new File("InvertedIndex.txt");
+
+            writer = new BufferedWriter(new FileWriter(file));
+
+            readers = new BufferedReader[fileNumber+1];
+
+            lines = new char[fileNumber+1][];
+            terms = new char[fileNumber+1][];
+            readLine = new boolean[fileNumber+1];
+
+            for(int i =0; i < fileNumber; i++)
+            {
+                readers[i] = new BufferedReader(new FileReader(fileName+i));
+                lines[i] = readers[i].readLine().toCharArray();
+
+                int j = 0, length = lines[i].length;
+
+                terms[i] = new char[length];
+
+                for(j=0; j < length; j++)
+                {
+                    if(lines[i][j] == ':')
+                        break;
+                    terms[i][j] = lines[i][j];
+                }
+
+                PQueueNode node = new PQueueNode(terms[i], j, i);
+
+                queue.add(node);
+
+
+            }
+
+            fileAvailable = new TreeMap<Integer, Boolean>();
+            for(int k = 0; k < fileNumber; k++)
+            {
+                fileAvailable.put(k, true);
+            }
+
+            Boolean noFileAvailable = false;
+
+            while(true)
+            {
+
+                StringBuilder line = RemoveLines();
+
+                if(line == null)
+                    break;
+
+                writer.write(line.toString().toCharArray());
+                writer.write('\n');
+
+                // Add lines...
+
+                AddLines();
+
+            }
+
+            while(!queue.isEmpty())
+            {
+                PQueueNode head = queue.remove();
+                int index = head.getIndex();
+                writer.write(lines[index]);
+                writer.write('\n');
+            }
+
+
+            writer.flush();
+
+        }
+        catch(Exception e)
+        {
+            System.out.print(e.getMessage());
+        }
+        finally
+        {
+                                            // *****************
+
+            try
+            {
+
+                writer.close();
+                for(int i =0; i < fileNumber; i++)
+            {
+                readers[i].close();
+                File fileToDelete = new File(fileName+i);
+                fileToDelete.delete();
+            }
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public StringBuilder RemoveLines()
+    {
+
+        StringBuilder buffer=new StringBuilder();
+        if(queue.isEmpty())
+            return null;
+
+        PQueueNode head = queue.remove();
+        int index = head.getIndex();
+
+        readLine[index] = true;
+
+        if(queue.isEmpty())
+            return new StringBuilder(new String(lines[index]));
+
+        buffer.setLength(0);
+
+        int length=0;
+        for(;length < lines[index].length; length++)
+        {
+            if(lines[index][length] == ':')
+                break;
+        }
+
+        buffer.append(lines[index], 0, length);
+        buffer.append(':');
+
+        char[] currentTerm = new char[length];
+        for(int i =0 ; i < length; i++)
+        {
+            currentTerm[i] = lines[index][i];
+        }
+
+
+        // ****		For now don't add doc ids.. *****************
+        length++;
+        while(length < lines[index].length)
+        {
+            buffer.append(lines[index][length++]);
+        }
+
+
+        while(!queue.isEmpty() && IsEqual(queue.peek().getWord().toCharArray(), currentTerm))
+        {
+            head = queue.remove();
+            int newIndex = head.getIndex();
+            readLine[newIndex] = true;
+
+            int i=0;
+
+            while(i < lines[newIndex].length && lines[newIndex][i++]!=':');
+
+            //i++;
+
+            while(i < lines[newIndex].length)
+            {
+                buffer.append(lines[newIndex][i++]);
+            }
+
+
+        }
+
+        return buffer;
+    }
+
+    public void AddLines() throws IOException
+    {
+        for(int index = 0; index < fileNumber; index++)
+        {
+            if(readLine[index] == false || fileAvailable.get(index) == false)
+                continue;
+
+            String line = readers[index].readLine();
+
+            if(line == null)
+            {
+                fileAvailable.put(index, false);
+            }
+            else
+            {
+                lines[index] = line.toCharArray();
+                readLine[index] = false;
+
+                int i = 0;
+                while(lines[index][i++] != ':');
+
+                PQueueNode node = new PQueueNode(lines[index], i-1, index);
+
+                queue.add(node);
+            }
+
+        }
+    }
+
+    public boolean IsEqual(char[] first, char[] second)
+    {
+        int firstLength = first.length;
+        int secondLength = second.length;
+
+        int i = 0;
+        while( i < firstLength && i < secondLength)
+        {
+            int diff = first[i] - second[i];
+            i++;
+            if(diff == 0)
+                continue;
+            else
+                return false;
+        }
+
+        return firstLength == secondLength;
+
+    }
+}
